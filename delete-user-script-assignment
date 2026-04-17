@@ -1,0 +1,34 @@
+#!/bin/bash
+
+: << 'COMMENT'
+This is Train with subham shell scripts assignment
+to delete user
+COMMENT
+
+# Check option
+if [[ "$1" != "-d" && "$1" != "--delete" ]]; then
+  echo "Usage: $0 -d | --delete"
+  exit 1
+fi
+
+# Input
+read -p "UserName: " userName
+
+# Validation
+if [ -z "$userName" ]; then
+  echo "UserName cannot be empty."
+  exit 1
+fi
+
+# Check user exists
+if ! grep -q "^$userName:" /etc/passwd; then
+  echo "User does not exist."
+  exit 1
+fi
+
+# Delete user
+if sudo userdel -r "$userName"; then
+  echo "User '$userName' deleted successfully."
+else
+  echo "Failed to delete user."
+fi
