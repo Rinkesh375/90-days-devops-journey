@@ -2,7 +2,9 @@ console.log("a")
 
 console.log("e")
 
-console.log("i")
+console.losg("iab")
+
+console.log("g")
 
 console.log("m")
 
