@@ -1,0 +1,169 @@
+# 📌 Docker Compose file version
+# 👉 HinEnglish: Compose file ka version batata hai (syntax compatibility ke liye)
+# 👉 English: Defines the version of docker-compose syntax being used
+version: '3'
+
+services:
+
+  # =========================================================
+  # 🐬 MYSQL DATABASE SERVICE
+  # =========================================================
+  mysql:
+    # 👉 HinEnglish: MySQL official image use ho rahi hai (version 5.7)
+    # 👉 English: Using official MySQL image version 5.7
+    image: mysql:5.7
+
+    # 👉 HinEnglish: Container ka fixed naam (docker ps me dikhega)
+    # ⚠️ Production me avoid karo (scaling issues)
+    # 👉 English: Fixed container name (visible in docker ps)
+    # ⚠️ Avoid in production due to scaling limitations
+    container_name: mysql
+
+    # 👉 HinEnglish: MySQL ko configure karne ke liye environment variables
+    # 👉 English: Environment variables to configure MySQL
+    environment:
+      # 👉 Normal user password
+      MYSQL_PASSWORD: admin
+
+      # 👉 Ek user create hoga 'admin' naam se
+      MYSQL_USER: admin
+
+      # 👉 Root user password
+      MYSQL_ROOT_PASSWORD: admin
+
+      # 👉 Container start hote hi ye DB auto create ho jayega
+      MYSQL_DATABASE: tws_db
+
+    # 👉 HinEnglish: Data ko persistent banane ke liye volume mapping
+    # 👉 English: Volume mapping for persistent data storage
+    volumes:
+      # 👉 Local folder ./mysql_data_new → container ke andar MySQL data path
+      # 👉 Data container delete hone ke baad bhi safe rahega
+      - ./mysql_data_new:/var/lib/mysql
+
+    # 👉 HinEnglish: Container ko custom network se connect karna
+    # 👉 English: Connect container to custom network
+    networks:
+      - twotier
+
+    # 👉 HinEnglish: Host machine se MySQL access ke liye port mapping
+    # 👉 English: Port mapping to access MySQL from host
+    ports:
+      - "3306:3306"
+
+    healthcheck:
+      test: ["CMD","mysqladmin","ping","-h","localhost","-uroot","-padmin"]
+      interval: 10s
+      retries: 5
+      start_period: 60s
+      timeout: 5s  
+
+
+  # =========================================================
+  # 🚀 FLASK APPLICATION SERVICE 2
+  # =========================================================
+  flaskapp:
+  # 👉 HinEnglish:
+  # Ye service current folder ke Dockerfile se image build karegi
+  # 👉 English:
+  # This service will build an image using the Dockerfile from current directory
+
+    build:
+      context: .
+
+  # =========================================================
+  # 🧠 IMAGE NAME KA LOGIC (VERY IMPORTANT 🔥)
+  # =========================================================
+
+  # 👉 HinEnglish:
+  # Agar yaha 'image:' specify nahi kiya gaya hai,
+  # to Docker automatically ek default image name generate karega
+
+  # 👉 Default Naming Format:
+  # <project-name>-<service-name>
+
+  # 👉 Project name kaha se aata hai?
+  # By default = current folder ka naam
+
+  # 👉 Example:
+  # Agar folder ka naam hai: two-tier-app
+  # Aur service ka naam hai: flaskapp
+
+  # 👉 Final image name hoga:
+  # two-tier-app-flaskapp
+
+  # 👉 English:
+  # If 'image:' is not specified, Docker auto-generates a name
+  # using this format:
+  # <project-name>-<service-name>
+
+  # Project name = folder name (by default)
+  # Service name = flaskapp
+
+  # Example:
+  # Folder: two-tier-app
+  # Service: flaskapp
+  # Image: two-tier-app-flaskapp
+
+  # =========================================================
+  # ⚠️ NOTE:
+  # Ye random nahi hota — predictable naming pattern follow karta hai
+  # =========================================================
+
+  # =========================================================
+  # ✅ BEST PRACTICE (Optional)
+  # Agar tum custom naam chahte ho to 'image:' use karo:
+  #
+  # image: my-flask-app
+  #
+  # Tab image name hoga: my-flask-app
+  # =========================================================
+    
+
+    # 👉 Fixed container name
+    container_name: flaskapp
+
+    # 👉 HinEnglish: Flask app ke liye DB connection config
+    # 👉 English: Environment variables for DB connection in Flask app
+    environment:
+      MYSQL_PASSWORD: admin
+
+      # 👉 VERY IMPORTANT 🔥
+      # 👉 HinEnglish: Ye service name hai (mysql), isi se DB connect hoga
+      # 👉 English: This is the service name used for DB connection
+      MYSQL_HOST: mysql
+
+      MYSQL_USER: root
+      MYSQL_DB: tws_db
+
+    # 👉 HinEnglish: Same network me connect (taaki mysql se baat ho sake)
+    # 👉 English: Connect to same network to communicate with MySQL
+    networks:
+      - twotier
+
+    # 👉 Flask app ko browser se access karne ke liye
+    ports:
+      - "5000:5000"
+
+    # 👉 HinEnglish: Pehle mysql start hoga, phir flaskapp
+    # 👉 English: Ensures mysql starts before flaskapp
+    depends_on:
+      - mysql
+
+
+# =========================================================
+# 💾 VOLUMES (Persistent Storage)
+# =========================================================
+volumes:
+  mysql_data_new:
+    # 👉 HinEnglish: Default Docker volume config use hoga
+    # 👉 English: Uses default Docker-managed volume settings
+
+
+# =========================================================
+# 🌐 NETWORKS (Container Communication)
+# =========================================================
+networks:
+  twotier:
+    # 👉 HinEnglish: Default bridge network create hoga
+    # 👉 English: Default bridge network will be created

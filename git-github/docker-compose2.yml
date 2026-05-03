@@ -1,0 +1,89 @@
+# Docker Compose file version
+# Defines docker-compose syntax version
+version: '3'
+
+services:
+
+  # ============================
+  # MYSQL DATABASE SERVICE
+  # ============================
+  mysql:
+    # Use official MySQL image
+    image: mysql:5.7
+
+    # Fixed container name
+    container_name: mysql
+
+    # MySQL configuration
+    environment:
+      MYSQL_PASSWORD: admin        # Password for normal user
+      MYSQL_USER: admin            # Creates user 'admin'
+      MYSQL_ROOT_PASSWORD: admin   # Root password
+      MYSQL_DATABASE: tws_db       # Auto-create database
+
+    # Store data persistently
+    volumes:
+      - ./mysql_data_new:/var/lib/mysql
+
+    # Connect to custom network
+    networks:
+      - twotier
+
+    # Expose MySQL port
+    ports:
+      - "3306:3306"
+
+    # Health check to verify MySQL is running
+    healthcheck:
+      test: ["CMD","mysqladmin","ping","-h","localhost","-uroot","-padmin"]  # Check if MySQL responds
+      interval: 10s     # Run every 10 seconds
+      timeout: 5s       # Wait max 5 seconds for response
+      retries: 5        # Mark unhealthy after 5 failures
+      start_period: 60s # Ignore failures for first 60 seconds
+
+
+  # ============================
+  # FLASK APPLICATION SERVICE
+  # ============================
+  flaskapp:
+    # Build image from Dockerfile in current folder
+    build:
+      context: .
+
+    # Fixed container name
+    container_name: flaskapp
+
+    # Environment variables for DB connection
+    environment:
+      MYSQL_PASSWORD: admin
+      MYSQL_HOST: mysql   # Connect using service name
+      MYSQL_USER: root
+      MYSQL_DB: tws_db
+
+    # Connect to same network
+    networks:
+      - twotier
+
+    # Expose Flask app port
+    ports:
+      - "5000:5000"
+
+    # Start after MySQL
+    depends_on:
+      - mysql
+
+
+# ============================
+# VOLUMES
+# ============================
+volumes:
+  mysql_data_new:
+    # Docker-managed volume
+
+
+# ============================
+# NETWORKS
+# ============================
+networks:
+  twotier:
+    # Default bridge network
