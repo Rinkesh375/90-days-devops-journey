@@ -1,89 +1,176 @@
-# Docker Compose file version
-# Defines docker-compose syntax version
-version: '3'
+# =========================================================
+# 📌 Docker Compose Version
+# 👉 HinEnglish: Compose file ka syntax version define karta hai
+# 👉 English: Defines docker-compose syntax version
+# =========================================================
+version: '3.8'
+
 
 services:
 
-  # ============================
-  # MYSQL DATABASE SERVICE
-  # ============================
+  # =========================================================
+  # 🐬 MYSQL DATABASE SERVICE
+  # =========================================================
   mysql:
-    # Use official MySQL image
+
+    # 👉 HinEnglish: Official MySQL image (version 5.7)
+    # 👉 English: Use MySQL version 5.7 image
     image: mysql:5.7
 
-    # Fixed container name
+    # 👉 HinEnglish: Container ka fixed naam
+    # ⚠️ Production me avoid (scaling issue)
+    # 👉 English: Fixed container name (not recommended in production)
     container_name: mysql
 
-    # MySQL configuration
+    # 👉 HinEnglish: MySQL ko initialize karne ke liye config
+    # 👉 English: MySQL configuration via environment variables
     environment:
-      MYSQL_PASSWORD: admin        # Password for normal user
-      MYSQL_USER: admin            # Creates user 'admin'
+      MYSQL_PASSWORD: admin        # Normal user password
+      MYSQL_USER: admin            # Create user 'admin'
       MYSQL_ROOT_PASSWORD: admin   # Root password
       MYSQL_DATABASE: tws_db       # Auto-create database
 
-    # Store data persistently
+    # =========================================================
+    # 💾 VOLUMES (Data Persistence + Init Script)
+    # =========================================================
     volumes:
+      # 👉 HinEnglish:
+      # Local folder → MySQL data store
+      # Container delete hone ke baad bhi data safe rahega
+      #
+      # 👉 English:
+      # Persist MySQL data on host machine
       - ./mysql_data_new:/var/lib/mysql
 
-    # Connect to custom network
+      # 👉 VERY IMPORTANT 🔥
+      # 👉 HinEnglish:
+      # Ye SQL file container ke first startup pe run hoti hai
+      # Tables/data initialize karne ke liye use hoti hai
+      #
+      # 👉 English:
+      # SQL script runs automatically on first startup
+      - ./message.sql:/docker-entrypoint-initdb.d/message.sql
+
+    # 👉 HinEnglish: Container ko network me connect karna
+    # 👉 English: Attach container to network
     networks:
       - twotier
 
-    # Expose MySQL port
+    # 👉 HinEnglish: MySQL ko external access dena
+    # 👉 English: Expose MySQL to host machine
     ports:
       - "3306:3306"
 
-    # Health check to verify MySQL is running
+    # =========================================================
+    # ❤️ MYSQL HEALTHCHECK
+    # =========================================================
     healthcheck:
-      test: ["CMD","mysqladmin","ping","-h","localhost","-uroot","-padmin"]  # Check if MySQL responds
-      interval: 10s     # Run every 10 seconds
-      timeout: 5s       # Wait max 5 seconds for response
-      retries: 5        # Mark unhealthy after 5 failures
-      start_period: 60s # Ignore failures for first 60 seconds
+      # 👉 Check if MySQL is responding
+      test: ["CMD","mysqladmin","ping","-h","localhost","-uroot","-padmin"]
+
+      interval: 10s      # Run every 10 seconds
+      timeout: 5s        # Max wait for response
+      retries: 5         # 5 failures → unhealthy
+      start_period: 60s  # Ignore failures initially (DB startup time)
+
+    # =========================================================
+    # 🔁 RESTART POLICY
+    # =========================================================
+    restart: always
+    # 👉 HinEnglish:
+    # Container har situation me restart hoga:
+    # - crash
+    # - manual stop
+    # - system reboot
+    #
+    # 👉 English:
+    # Always restart container in all scenarios
+
+    # 👉 Other possible values:
+    #
+    # restart: "no"
+    # 👉 HinEnglish: Kabhi restart nahi karega
+    # 👉 English: Never restart
+    #
+    # restart: on-failure
+    # 👉 HinEnglish: Sirf error pe restart karega
+    # 👉 English: Restart only on failure
+    #
+    # restart: on-failure:3
+    # 👉 HinEnglish: Max 3 retries
+    # 👉 English: Retry max 3 times
+    #
+    # restart: unless-stopped
+    # 👉 HinEnglish: Restart karega jab tak manually stop na karo (BEST PRACTICE 🔥)
+    # 👉 English: Restart unless manually stopped
 
 
-  # ============================
-  # FLASK APPLICATION SERVICE
-  # ============================
+  # =========================================================
+  # 🚀 FLASK APPLICATION SERVICE
+  # =========================================================
   flaskapp:
-    # Build image from Dockerfile in current folder
+
+    # 👉 HinEnglish: Dockerfile se image build hogi
+    # 👉 English: Build image from Dockerfile
     build:
       context: .
 
-    # Fixed container name
+    # 👉 Fixed container name
     container_name: flaskapp
 
-    # Environment variables for DB connection
+    # =========================================================
+    # 🔌 DATABASE CONNECTION CONFIG
+    # =========================================================
     environment:
       MYSQL_PASSWORD: admin
-      MYSQL_HOST: mysql   # Connect using service name
+
+      # 👉 VERY IMPORTANT 🔥
+      # 👉 Service name used for DB connection
+      MYSQL_HOST: mysql
+
       MYSQL_USER: root
       MYSQL_DB: tws_db
 
-    # Connect to same network
+    # 👉 Same network (Flask ↔ MySQL communication)
     networks:
       - twotier
 
-    # Expose Flask app port
+    # 👉 Flask app ko browser me access karne ke liye
     ports:
       - "5000:5000"
 
-    # Start after MySQL
+    # 👉 Start order control (NOT readiness)
     depends_on:
       - mysql
 
+    # =========================================================
+    # 🔁 RESTART POLICY
+    # =========================================================
+    restart: always
+    # 👉 Same explanation as above (auto restart in all cases)
 
-# ============================
-# VOLUMES
-# ============================
-volumes:
-  mysql_data_new:
-    # Docker-managed volume
+    # =========================================================
+    # ❤️ FLASK HEALTHCHECK
+    # =========================================================
+    healthcheck:
+      # 👉 HinEnglish:
+      # Flask ke /health endpoint ko hit karega
+      # Agar fail → unhealthy
+      #
+      # 👉 English:
+      # Check Flask API health endpoint
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 
-# ============================
-# NETWORKS
-# ============================
+# =========================================================
+# 🌐 NETWORKS
+# =========================================================
 networks:
   twotier:
-    # Default bridge network
+    # 👉 Default bridge network
+    # 👉 Containers communicate using service names
